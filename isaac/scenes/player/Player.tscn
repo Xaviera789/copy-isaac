@@ -17,4 +17,3 @@ shape = SubResource("RectangleShape2D_1")
 modulate = Color(0, 1, 0, 1)
 offset_right = 16.0
 offset_bottom = 16.0
-

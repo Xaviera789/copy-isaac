@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://bqmq7xuycwykj"]
+
+[ext_resource type="PackedScene" path="res://scenes/player/Player.tscn" id="1_qt7xo"]
+
+[node name="TestRoom" type="Node2D" unique_id=2120835199]
+position = Vector2(-1, -2)
+
+[node name="RoomBounds" type="ColorRect" parent="." unique_id=365351447]
+offset_right = 800.0
+offset_bottom = 600.0
+color = Color(0.16470589, 0.16470589, 0.16470589, 1)
+
+[node name="Player" parent="RoomBounds" unique_id=959896006 instance=ExtResource("1_qt7xo")]
+position = Vector2(400, 300)
+
+[node name="Camera" type="Camera2D" parent="." unique_id=1268824920]
+position = Vector2(400, 300)
