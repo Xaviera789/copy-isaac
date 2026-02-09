@@ -22,22 +22,23 @@ func _ready():
 	# 初始化速度
 	velocity = direction.normalized() * speed
 
-func _physics_process(delta):
+func _physics_process(delta: float) -> void:
 	# 移动子弹
 	global_position += velocity * delta
 	
 	# 检查是否超出屏幕（简单边界检查）
-	var viewport = get_viewport_rect()
-	if not viewport.has_point(global_position):
+	var viewport = get_viewport()
+	if viewport:
+		var viewport_rect = viewport.get_visible_rect()
 		# 如果超出屏幕一定距离，销毁子弹
 		var margin = 100
-		if global_position.x < viewport.position.x - margin or \
-		   global_position.x > viewport.position.x + viewport.size.x + margin or \
-		   global_position.y < viewport.position.y - margin or \
-		   global_position.y > viewport.position.y + viewport.size.y + margin:
+		if global_position.x < viewport_rect.position.x - margin or \
+		   global_position.x > viewport_rect.position.x + viewport_rect.size.x + margin or \
+		   global_position.y < viewport_rect.position.y - margin or \
+		   global_position.y > viewport_rect.position.y + viewport_rect.size.y + margin:
 			queue_free()
 
-func _on_body_entered(body):
+func _on_body_entered(body: Node2D) -> void:
 	# 当子弹碰撞到物体时销毁
 	# 注意：这里可以根据需要添加伤害逻辑
 	# 子弹只应该与敌人碰撞（通过collision_mask设置）
@@ -45,7 +46,7 @@ func _on_body_entered(body):
 		body.take_damage(1)  # 假设有伤害方法
 	queue_free()
 
-func _on_area_entered(area):
+func _on_area_entered(area: Area2D) -> void:
 	# 当子弹碰撞到区域时销毁
 	# 可以用于碰撞墙壁等
 	queue_free()

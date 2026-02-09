@@ -114,34 +114,48 @@ func _limit_to_room_bounds() -> void:
 	global_position.x = clamp(global_position.x, min_pos.x, max_pos.x)
 	global_position.y = clamp(global_position.y, min_pos.y, max_pos.y)
 
+## 处理射击输入
+## 响应鼠标左键射击输入，检查冷却时间后调用射击方法
 func handle_shooting():
-	# 检查是否可以射击
+	# 检查是否可以射击（冷却时间是否结束）
 	if not can_shoot:
 		return
 	
-	# 检查鼠标左键输入
+	# 响应鼠标左键射击输入（通过"shoot"输入动作）
 	if Input.is_action_just_pressed("shoot"):
 		shoot()
 
+## 射击方法
+## 根据鼠标位置相对于角色的方位计算射击方向，并生成子弹实例
 func shoot():
-	# 计算射击方向（从玩家位置指向鼠标位置）
+	# 获取鼠标的全局位置
 	var mouse_pos = get_global_mouse_position()
+	
+	# 根据鼠标位置相对于角色的方位计算射击方向
+	# 方向 = (鼠标位置 - 玩家位置) 的标准化向量
 	var shoot_direction = (mouse_pos - global_position).normalized()
 	
-	# 如果方向向量无效（鼠标和玩家位置相同），使用默认方向
+	# 如果方向向量无效（鼠标和玩家位置相同或距离太近），使用默认方向
 	if shoot_direction.length() < 0.1:
 		shoot_direction = Vector2.RIGHT
 	
-	# 创建子弹实例
+	# 生成子弹实例
 	var projectile = projectile_scene.instantiate()
 	
-	# 设置子弹位置和方向
+	# 设置子弹位置（从玩家位置开始）
 	projectile.global_position = global_position
+	
+	# 设置子弹的射击方向
 	projectile.direction = shoot_direction
 	
-	# 将子弹添加到场景树
-	get_tree().current_scene.add_child(projectile)
+	# 将子弹添加到场景树（安全地添加到当前场景）
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		current_scene.add_child(projectile)
+	else:
+		# 如果当前场景不存在，添加到场景树根节点
+		get_tree().root.add_child(projectile)
 	
-	# 重置冷却时间
+	# 重置冷却时间，防止无限射击
 	shoot_timer = shoot_cooldown
 	can_shoot = false
