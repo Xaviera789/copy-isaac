@@ -39,6 +39,8 @@ func _ready():
 	print("玩家生命值初始化: ", hp, " / ", max_hp)
 
 func _process(delta: float) -> void:
+	# 先调用父类的 _process，更新无敌帧计时器等通用逻辑
+	super._process(delta)
 	# 处理闪烁效果
 	_update_flash_effect(delta)
 
