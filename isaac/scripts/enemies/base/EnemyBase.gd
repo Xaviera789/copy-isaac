@@ -5,10 +5,19 @@ extends Damageable
 ## 提供基础的敌人行为和AI功能
 
 ## 敌人移动速度（像素/秒）
-@export var move_speed: float = 100.0
+@export var move_speed: float = 70.0
 
 ## 初始生命值（默认1点）
-@export var initial_hp: int = 1
+@export var initial_hp: int = 5
+
+## 碰撞接触伤害（对玩家）
+@export var contact_damage: int = 1
+
+## 碰撞伤害冷却时间（秒，防止每帧都触发伤害）
+@export var contact_damage_cooldown: float = 0.5
+
+## 当前碰撞伤害冷却计时器
+var contact_damage_timer: float = 0.0
 
 ## 房间边界限制（暂时硬编码，后续接入房间系统）
 @export var room_bounds: Rect2 = Rect2(0, 0, 800, 600)
@@ -36,8 +45,16 @@ func _ready():
 	_find_player_target()
 
 func _physics_process(delta: float) -> void:
+	# 更新碰撞伤害冷却计时器
+	if contact_damage_timer > 0.0:
+		contact_damage_timer -= delta
+	
 	# 更新AI行为
 	_update_ai(delta)
+	
+	# 处理与玩家的碰撞伤害
+	_handle_contact_damage()
+	
 	# 限制敌人在房间边界内
 	_limit_to_room_bounds()
 
@@ -179,6 +196,38 @@ func _limit_to_room_bounds() -> void:
 	# 直接限制位置
 	global_position.x = clamp(global_position.x, min_pos.x, max_pos.x)
 	global_position.y = clamp(global_position.y, min_pos.y, max_pos.y)
+
+## 处理与玩家的碰撞伤害
+func _handle_contact_damage() -> void:
+	# 冷却中，不触发伤害
+	if contact_damage_timer > 0.0:
+		return
+	
+	var slide_count := get_slide_collision_count()
+	if slide_count <= 0:
+		return
+	
+	for i in range(slide_count):
+		var collision := get_slide_collision(i)
+		if collision == null:
+			continue
+		
+		var collider := collision.get_collider()
+		if collider == null:
+			continue
+		
+		# 通过脚本路径判断是否为 Player（与 _find_player_recursive 的判断方式保持一致）
+		if collider.get_script():
+			var script_path = collider.get_script().resource_path
+			if script_path and script_path.ends_with("Player.gd"):
+				# 只有可受伤对象才触发伤害
+				if collider is Damageable:
+					collider.take_damage(contact_damage)
+				
+				# 启动碰撞伤害冷却，防止连续受伤
+				contact_damage_timer = contact_damage_cooldown
+				# 一次碰撞只处理一次玩家伤害即可
+				break
 
 ## 重写死亡方法
 func die() -> void:

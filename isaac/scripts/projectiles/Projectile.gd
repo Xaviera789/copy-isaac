@@ -6,6 +6,7 @@ extends Area2D
 @export var speed: float = 300.0  # 子弹速度
 @export var direction: Vector2 = Vector2.RIGHT  # 射击方向
 @export var lifetime: float = 5.0  # 最大存活时间（秒）
+@export var damage: int = 1  # 伤害值（Step 3：对子弹伤害进行参数化）
 
 var velocity: Vector2 = Vector2.ZERO
 
@@ -40,10 +41,12 @@ func _physics_process(delta: float) -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	# 当子弹碰撞到物体时销毁
-	# 注意：这里可以根据需要添加伤害逻辑
-	# 子弹只应该与敌人碰撞（通过collision_mask设置）
-	if body.has_method("take_damage"):
-		body.take_damage(1)  # 假设有伤害方法
+	# Step 3：只对可受伤对象（例如 EnemyBase / 其它 Damageable）造成伤害
+	# 具体命中目标由碰撞层 / 掩码控制，这里只对 Damageable 生效
+	if body is Damageable:
+		body.take_damage(damage)
+	# 立即停止监测，避免同一帧/相邻帧重复触发
+	set_deferred("monitoring", false)
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
