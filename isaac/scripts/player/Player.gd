@@ -1,4 +1,4 @@
-extends CharacterBody2D
+extends Damageable
 
 ## 玩家脚本
 ## 处理玩家移动、边界限制和射击功能
@@ -12,14 +12,35 @@ extends CharacterBody2D
 ## 房间边界限制（暂时硬编码，后续接入房间系统）
 @export var room_bounds: Rect2 = Rect2(0, 0, 800, 600)
 
+## 初始生命值（3颗心）
+@export var initial_hp: int = 3
+
+## 闪烁效果相关
+@onready var color_rect: ColorRect = $ColorRect
+var flash_timer: float = 0.0
+var is_flashing: bool = false
+
 @onready var projectile_scene = preload("res://scenes/projectiles/Projectile.tscn")
 
 var shoot_timer: float = 0.0
 var can_shoot: bool = true
 
+## 玩家死亡信号
+signal player_died
+## 玩家受伤信号
+signal player_took_damage(new_hp: int)
+
 func _ready():
-	# 初始化
-	pass
+	# 先设置最大生命值（3颗心）
+	max_hp = initial_hp
+	# 调用父类的 _ready（会设置hp = max_hp）
+	super._ready()
+	# 打印生命值信息
+	print("玩家生命值初始化: ", hp, " / ", max_hp)
+
+func _process(delta: float) -> void:
+	# 处理闪烁效果
+	_update_flash_effect(delta)
 
 func _physics_process(delta: float) -> void:
 	# 更新射击冷却时间
@@ -114,48 +135,93 @@ func _limit_to_room_bounds() -> void:
 	global_position.x = clamp(global_position.x, min_pos.x, max_pos.x)
 	global_position.y = clamp(global_position.y, min_pos.y, max_pos.y)
 
-## 处理射击输入
-## 响应鼠标左键射击输入，检查冷却时间后调用射击方法
 func handle_shooting():
-	# 检查是否可以射击（冷却时间是否结束）
+	# 检查是否可以射击
 	if not can_shoot:
 		return
 	
-	# 响应鼠标左键射击输入（通过"shoot"输入动作）
+	# 检查鼠标左键输入
 	if Input.is_action_just_pressed("shoot"):
 		shoot()
 
-## 射击方法
-## 根据鼠标位置相对于角色的方位计算射击方向，并生成子弹实例
 func shoot():
-	# 获取鼠标的全局位置
+	# 计算射击方向（从玩家位置指向鼠标位置）
 	var mouse_pos = get_global_mouse_position()
-	
-	# 根据鼠标位置相对于角色的方位计算射击方向
-	# 方向 = (鼠标位置 - 玩家位置) 的标准化向量
 	var shoot_direction = (mouse_pos - global_position).normalized()
 	
-	# 如果方向向量无效（鼠标和玩家位置相同或距离太近），使用默认方向
+	# 如果方向向量无效（鼠标和玩家位置相同），使用默认方向
 	if shoot_direction.length() < 0.1:
 		shoot_direction = Vector2.RIGHT
 	
-	# 生成子弹实例
+	# 创建子弹实例
 	var projectile = projectile_scene.instantiate()
 	
-	# 设置子弹位置（从玩家位置开始）
+	# 设置子弹位置和方向
 	projectile.global_position = global_position
-	
-	# 设置子弹的射击方向
 	projectile.direction = shoot_direction
 	
-	# 将子弹添加到场景树（安全地添加到当前场景）
-	var current_scene = get_tree().current_scene
-	if current_scene:
-		current_scene.add_child(projectile)
-	else:
-		# 如果当前场景不存在，添加到场景树根节点
-		get_tree().root.add_child(projectile)
+	# 将子弹添加到场景树
+	get_tree().current_scene.add_child(projectile)
 	
-	# 重置冷却时间，防止无限射击
+	# 重置冷却时间
 	shoot_timer = shoot_cooldown
 	can_shoot = false
+
+## 重写take_damage方法，添加视觉反馈和生命值显示
+func take_damage(amount: int) -> void:
+	# 调用父类方法处理伤害
+	super.take_damage(amount)
+	
+	# 打印生命值信息
+	print("玩家受到伤害: ", amount, "，当前生命值: ", hp, " / ", max_hp)
+	
+	# 发射受伤信号
+	player_took_damage.emit(hp)
+	
+	# 触发闪烁效果
+	_start_flash_effect()
+
+## 重写die方法，实现死亡逻辑
+func die() -> void:
+	print("玩家死亡！")
+	
+	# 发射死亡信号
+	player_died.emit()
+	
+	# 实现死亡逻辑：重新加载当前场景（游戏重启）
+	# 注意：这里使用get_tree().reload_current_scene()来重启游戏
+	# 如果后续有更复杂的游戏状态管理，可以改为切换到游戏结束场景
+	get_tree().reload_current_scene()
+
+## 开始闪烁效果
+func _start_flash_effect() -> void:
+	if not is_flashing:
+		is_flashing = true
+		flash_timer = invincibility_duration  # 闪烁持续时间与无敌帧相同
+
+## 更新闪烁效果
+func _update_flash_effect(delta: float) -> void:
+	if not color_rect:
+		return
+	
+	if is_flashing and flash_timer > 0:
+		flash_timer -= delta
+		
+		# 计算闪烁状态（在无敌帧期间持续闪烁）
+		# 使用sin函数创建平滑的闪烁效果
+		var flash_alpha = sin(flash_timer * 30.0) * 0.5 + 0.5  # 0-1之间
+		
+		# 在无敌状态下，让玩家半透明闪烁
+		if is_invincible:
+			color_rect.modulate = Color(1, 1, 1, flash_alpha)
+		else:
+			color_rect.modulate = Color(1, 1, 1, 1)
+		
+		# 闪烁时间结束
+		if flash_timer <= 0:
+			is_flashing = false
+			color_rect.modulate = Color(1, 1, 1, 1)  # 恢复正常颜色
+	else:
+		# 确保不在闪烁时恢复正常颜色
+		if not is_invincible:
+			color_rect.modulate = Color(1, 1, 1, 1)
